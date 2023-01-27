@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>GO</title>
+        <style>
+            #container {
+                display: flex;
+                justify-content: center;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="container">
+            <canvas id="canvas"></canvas>
+        </div>
+        <script>
+            const canvas = document.getElementById("canvas");
+            const ctx = canvas.getContext("2d");
+
+            const boardmargin = 30;
+            const boardspace = 30;
+
+            canvas.width = boardmargin * 2 + boardspace * 18;
+            canvas.height = boardmargin * 2 + boardspace * 18;
+
+            var turn = 1;
+
+            let boardpoints = {};
+            for (let i = 0; i < 19; i++) {
+                for (let j = 0; j < 19; j++) {
+                    boardpoints[i + "," + j] = {
+                        x: i,
+                        y: j,
+                        status: 0,
+                        nearpoints: [],
+                    };
+                }
+            }
+            for (let i = 0; i < 19; i++) {
+                for (let j = 0; j < 19; j++) {
+                    if (i > 0) {
+                        boardpoints[i + "," + j].nearpoints.push(boardpoints[(i - 1) + "," + j]);
+                    }     
+                    if (i < 18) {
+                        boardpoints[i + "," + j].nearpoints.push(boardpoints[(i + 1) + "," + j]);
+                    }     
+                    if (j > 0) {
+                        boardpoints[i + "," + j].nearpoints.push(boardpoints[i + "," + (j - 1)]);
+                    }     
+                    if (j < 18) {
+                        boardpoints[i + "," + j].nearpoints.push(boardpoints[i + "," + (j + 1)]);
+                    }     
+                }
+            }
+
+            function draw() {
+                ctx.fillStyle = "#FFCFAD";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                for (let i = 0; i < 19; i++) {
+                    ctx.beginPath();
+                    ctx.moveTo(boardmargin + i * boardspace, boardmargin);
+                    ctx.lineTo(boardmargin + i * boardspace, boardmargin + 18 * boardspace);
+                    ctx.stroke();
+
+                    ctx.beginPath();
+                    ctx.moveTo(boardmargin, boardmargin + i * boardspace);
+                    ctx.lineTo(boardmargin + 18 * boardspace, boardmargin + i * boardspace);
+                    ctx.stroke();
+                }
+
+                for (let i = 0; i < 3; i++) {
+                    for (let j = 0; j < 3; j++) {
+                        ctx.fillStyle = "black";
+                        ctx.beginPath();
+                        ctx.arc(
+                            boardmargin + 3 * boardspace + i * 6 * boardspace,
+                            boardmargin + 3 * boardspace + j * 6 * boardspace,
+                            3,
+                            0,
+                            2 * Math.PI
+                        );
+                        ctx.closePath();
+                        ctx.fill();
+                    }
+                }
+
+                for (let xy in boardpoints) {
+                    let boardpoint = boardpoints[xy];
+                    if (boardpoint.status != 0) {
+                        ctx.fillStyle = boardpoint.status == 1 ? "black" : "white";
+                        ctx.beginPath();
+                        ctx.arc(
+                            boardmargin + boardpoint.x * boardspace,
+                            boardmargin + boardpoint.y * boardspace,
+                            boardspace / 2,
+                            0,
+                            2 * Math.PI
+                        );
+                        ctx.closePath();
+                        ctx.fill();
+                    }
+                }
+            }
+
+            draw();
+
+            canvas.addEventListener("click", function (e) {
+                let rect = canvas.getBoundingClientRect();
+                let x = event.clientX - rect.left;
+                let y = event.clientY - rect.top;
+                let stonex = Math.round((x - boardmargin) / boardspace);
+                let stoney = Math.round((y - boardmargin) / boardspace);
+                if (stonex >= 0 && stonex <= 18 && stoney >= 0 && stoney <= 18) {
+                    let clickedpoint = boardpoints[stonex + "," + stoney];
+                    if (clickedpoint.status == 0) {
+                        clickedpoint.status = turn;
+                        // 提對手的子
+                        for (let nearpoint of clickedpoint.nearpoints) { 
+                            if (nearpoint.status == -clickedpoint.status) {
+                                let block = getBlock(nearpoint);
+                                if (!isBlockAlive(block)) {
+                                    console.log(block);
+                                    for (let boardpoint of block) {
+                                        boardpoint.status = 0;
+                                    }
+                                }
+                            }
+                        }
+                        // 防止自殺
+                        if (!isBlockAlive(getBlock(clickedpoint))) {
+                            clickedpoint.status = 0;
+                            return;
+                        }
+                        draw();
+                        turn = -turn;
+                    }
+                }
+            });
+
+            function getBlock(boardpoint) {
+                uncheckedpoints = [boardpoint];
+                checkedpoints = [];
+
+                while (uncheckedpoints.length > 0) {
+                    let checkingpoint = uncheckedpoints.pop();
+                    for (let nearpoint of checkingpoint.nearpoints) {
+                        if (nearpoint.status == boardpoint.status && !checkedpoints.includes(nearpoint)) {
+                            uncheckedpoints.push(nearpoint);
+                        }
+                    }
+                    checkedpoints.push(checkingpoint);
+                }
+                
+                return checkedpoints;
+            }
+
+            function isBlockAlive(block) {
+                for (let boardpoint of block) {
+                    for (let nearpoint of boardpoint.nearpoints) {
+                        if (nearpoint.status == 0) {
+                            return true;
+                        }
+                    }
+                }
+                return false;
+            }
+        </script>
+    </body>
+</html>
